@@ -1,0 +1,9 @@
+{
+  "name": "C# .NET and Node.js",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:8.0-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  }
+}
