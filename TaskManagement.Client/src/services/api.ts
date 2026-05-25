@@ -2,7 +2,7 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://taskmanagement-api-qivc.onrender.com/api',
+  baseURL: 'https://taskmanagement-server-mrrs.onrender.com/api',
   headers: {
     Accept: 'application/json',
     'Content-Type': 'application/json',
