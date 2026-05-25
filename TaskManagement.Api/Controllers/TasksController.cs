@@ -22,13 +22,33 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
             return Unauthorized(new { message = "Missing user identifier claim." });
         }
 
+        var isAdmin = User.IsInRole("Admin");
+        var ownerUserId = userId;
+
+        if (isAdmin)
+        {
+            if (string.IsNullOrWhiteSpace(request.AssignedUserId))
+            {
+                return BadRequest(new { message = "AssignedUserId is required for admin task creation." });
+            }
+
+            var assignedUserExists = await dbContext.Users.AnyAsync(u => u.Id == request.AssignedUserId);
+            if (!assignedUserExists)
+            {
+                return NotFound(new { message = "Assigned user was not found." });
+            }
+
+            ownerUserId = request.AssignedUserId;
+        }
+
         var taskItem = new TaskItem
         {
             Title = request.Title.Trim(),
             Description = request.Description?.Trim(),
+            Priority = string.IsNullOrWhiteSpace(request.Priority) ? "Medium" : request.Priority.Trim(),
             IsCompleted = request.IsCompleted,
             CreatedAtUtc = DateTime.UtcNow,
-            UserId = userId
+            UserId = ownerUserId
         };
 
         dbContext.TaskItems.Add(taskItem);
@@ -81,6 +101,7 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
 
         taskItem.Title = request.Title.Trim();
         taskItem.Description = request.Description?.Trim();
+        taskItem.Priority = string.IsNullOrWhiteSpace(request.Priority) ? taskItem.Priority : request.Priority.Trim();
         taskItem.IsCompleted = request.IsCompleted;
 
         await dbContext.SaveChangesAsync();
@@ -120,7 +141,11 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
 
         public string? Description { get; set; }
 
+        public string? Priority { get; set; }
+
         public bool IsCompleted { get; set; }
+
+        public string? AssignedUserId { get; set; }
     }
 
     public class UpdateTaskRequest
@@ -130,6 +155,8 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
         public string Title { get; set; } = string.Empty;
 
         public string? Description { get; set; }
+
+        public string? Priority { get; set; }
 
         public bool IsCompleted { get; set; }
     }
