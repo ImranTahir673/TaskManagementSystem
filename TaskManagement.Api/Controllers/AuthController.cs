@@ -35,12 +35,19 @@ public class AuthController(
             return Conflict(new { message = "Email is already registered." });
         }
 
+        // Determine Role based on Username
+        string assignedRole = "Regular";
+        if (normalizedUsername == "admin" || normalizedUsername == "imran")
+        {
+            assignedRole = "Admin";
+        }
+
         var user = new User
         {
             Id = Guid.NewGuid().ToString(),
             Username = request.Username.Trim(),
             Email = request.Email.Trim(),
-            Role = "Regular"
+            Role = assignedRole // <-- Dynamically assigns Admin if it's you!
         };
 
         user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
@@ -75,6 +82,14 @@ public class AuthController(
         if (verifyResult == PasswordVerificationResult.Failed)
         {
             return Unauthorized(new { message = "Invalid credentials." });
+        }
+
+        // RUNTIME ELEVATION JUMP:
+        // This ensures even if your account was saved as "Regular" earlier,
+        // logging in now forces your generated JWT token to carry the "Admin" role!
+        if (user.Username.ToLower() == "imran" || user.Username.ToLower() == "admin")
+        {
+            user.Role = "Admin";
         }
 
         var (token, expiresAtUtc) = tokenService.GenerateToken(user);
