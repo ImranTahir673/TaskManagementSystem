@@ -87,7 +87,7 @@ public class AuthController(
         // RUNTIME ELEVATION JUMP:
         // This ensures even if your account was saved as "Regular" earlier,
         // logging in now forces your generated JWT token to carry the "Admin" role!
-        if (user.Username.ToLower() == "imran" || user.Username.ToLower() == "admin")
+        if (user.Username.ToLower() == "imran" || user.Username.ToLower() == "imran2" || user.Username.ToLower() == "admin")
         {
             user.Role = "Admin";
         }
