@@ -1,11 +1,20 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: 'https://special-robot-vxvprq99pv9fpgqg-5236.app.github.dev/api',
+  headers: {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  },
 });
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('token');
+  const requestUrl = config.url ?? '';
+
+  if (requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register')) {
+    return config;
+  }
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
