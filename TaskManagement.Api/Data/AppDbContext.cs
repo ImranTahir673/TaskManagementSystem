@@ -28,6 +28,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasKey(t => t.Id);
             entity.Property(t => t.Title).HasMaxLength(200).IsRequired();
             entity.Property(t => t.Priority).HasMaxLength(20).IsRequired().HasDefaultValue("Medium");
+            entity.Property(t => t.Category).HasMaxLength(50).IsRequired().HasDefaultValue("General");
             entity.HasOne(t => t.User)
                 .WithMany()
                 .HasForeignKey(t => t.UserId)

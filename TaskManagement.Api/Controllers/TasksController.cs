@@ -11,16 +11,23 @@ namespace TaskManagement.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/tasks")]
-public class TasksController(AppDbContext dbContext) : ControllerBase
+public class TasksController(AppDbContext dbContext, ILogger<TasksController> logger) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<TaskItem>> Create(CreateTaskRequest request)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrWhiteSpace(userId))
         {
             return Unauthorized(new { message = "Missing user identifier claim." });
         }
+
+        logger.LogInformation("Creating task for user {UserId}", userId);
 
         var isAdmin = User.IsInRole("Admin");
         var ownerUserId = userId;
@@ -46,13 +53,23 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
             Title = request.Title.Trim(),
             Description = request.Description?.Trim(),
             Priority = string.IsNullOrWhiteSpace(request.Priority) ? "Medium" : request.Priority.Trim(),
+            DueDate = request.DueDate,
+            Category = string.IsNullOrWhiteSpace(request.Category) ? "General" : request.Category.Trim(),
             IsCompleted = request.IsCompleted,
             CreatedAtUtc = DateTime.UtcNow,
             UserId = ownerUserId
         };
 
-        dbContext.TaskItems.Add(taskItem);
-        await dbContext.SaveChangesAsync();
+        try
+        {
+            dbContext.TaskItems.Add(taskItem);
+            await dbContext.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to manage task operation");
+            throw;
+        }
 
         return CreatedAtAction(nameof(GetTasks), new { id = taskItem.Id }, taskItem);
     }
@@ -84,6 +101,11 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<ActionResult<TaskItem>> Update(int id, UpdateTaskRequest request)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         var taskItem = await dbContext.TaskItems.FirstOrDefaultAsync(t => t.Id == id);
         if (taskItem is null)
         {
@@ -102,6 +124,8 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
         taskItem.Title = request.Title.Trim();
         taskItem.Description = request.Description?.Trim();
         taskItem.Priority = string.IsNullOrWhiteSpace(request.Priority) ? taskItem.Priority : request.Priority.Trim();
+        taskItem.DueDate = request.DueDate ?? taskItem.DueDate;
+        taskItem.Category = string.IsNullOrWhiteSpace(request.Category) ? taskItem.Category : request.Category.Trim();
         taskItem.IsCompleted = request.IsCompleted;
 
         await dbContext.SaveChangesAsync();
@@ -136,12 +160,17 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
     public class CreateTaskRequest
     {
         [Required]
-        [MaxLength(200)]
+        [StringLength(100, MinimumLength = 3, ErrorMessage = "Title must be between 3 and 100 characters.")]
         public string Title { get; set; } = string.Empty;
 
+        [StringLength(500, ErrorMessage = "Description cannot exceed 500 characters.")]
         public string? Description { get; set; }
 
         public string? Priority { get; set; }
+
+        public DateTime? DueDate { get; set; }
+
+        public string? Category { get; set; }
 
         public bool IsCompleted { get; set; }
 
@@ -151,12 +180,17 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
     public class UpdateTaskRequest
     {
         [Required]
-        [MaxLength(200)]
+        [StringLength(100, MinimumLength = 3, ErrorMessage = "Title must be between 3 and 100 characters.")]
         public string Title { get; set; } = string.Empty;
 
+        [StringLength(500, ErrorMessage = "Description cannot exceed 500 characters.")]
         public string? Description { get; set; }
 
         public string? Priority { get; set; }
+
+        public DateTime? DueDate { get; set; }
+
+        public string? Category { get; set; }
 
         public bool IsCompleted { get; set; }
     }

@@ -32,10 +32,16 @@ type TaskItem = {
   description?: string | null;
   priority?: TaskPriority;
   Priority?: TaskPriority;
+  dueDate?: string | null;
+  DueDate?: string | null;
+  category?: string | null;
+  Category?: string | null;
   isCompleted: boolean;
   createdAtUtc?: string;
   userId?: string;
+  UserId?: string;
   assignedUserId?: string;
+  AssignedUserId?: string;
 };
 
 type TaskPriority = 'High' | 'Medium' | 'Low';
@@ -65,7 +71,12 @@ function App() {
   const [newDescription, setNewDescription] = useState('');
   const [assignedUserId, setAssignedUserId] = useState('');
   const [newPriority, setNewPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
+  const [newDueDate, setNewDueDate] = useState('');
+  const [newCategory, setNewCategory] = useState('General');
   const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   const [loginForm, setLoginForm] = useState<LoginFormState>({
     usernameOrEmail: '',
     password: '',
@@ -90,12 +101,14 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!token || userRole) {
+    if (!token || (userRole && currentUserId)) {
       return;
     }
 
     let isMounted = true;
 
+    setNewDueDate('');
+    setNewCategory('General');
     const loadCurrentUser = async () => {
       try {
         const response = await api.get<AuthMeResponse>('/auth/me');
@@ -118,7 +131,7 @@ function App() {
     return () => {
       isMounted = false;
     };
-  }, [token, userRole]);
+  }, [token, userRole, currentUserId]);
 
   useEffect(() => {
     if (!token) {
@@ -180,6 +193,33 @@ function App() {
     }
   };
 
+  const resolveCurrentUserId = async () => {
+    if (currentUserId) {
+      return currentUserId;
+    }
+
+    if (!token) {
+      return '';
+    }
+
+    try {
+      const response = await api.get<AuthMeResponse>('/auth/me');
+      const resolvedUserId = response.data?.userId ?? '';
+
+      if (resolvedUserId) {
+        setCurrentUserId(resolvedUserId);
+      }
+
+      if (response.data?.role) {
+        setUserRole(response.data.role ?? null);
+      }
+
+      return resolvedUserId;
+    } catch {
+      return '';
+    }
+  };
+
   const handleCreateTask = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -187,7 +227,8 @@ function App() {
       return;
     }
 
-    const taskOwnerId = userRole === 'Admin' ? assignedUserId : currentUserId;
+    const resolvedCurrentUserId = await resolveCurrentUserId();
+    const taskOwnerId = userRole === 'Admin' ? assignedUserId || resolvedCurrentUserId : resolvedCurrentUserId;
     if (!taskOwnerId) {
       return;
     }
@@ -201,10 +242,14 @@ function App() {
         IsCompleted: false,
         AssignedUserId: taskOwnerId,
         Priority: newPriority,
+        DueDate: newDueDate ? `${newDueDate}T00:00:00` : null,
+        Category: newCategory,
       });
 
       setNewTitle('');
       setNewDescription('');
+      setNewDueDate('');
+      setNewCategory('General');
       await fetchTasks();
     } catch {
       // Keep the UI quiet for now; the task grid remains unchanged on failure.
@@ -219,8 +264,35 @@ function App() {
         Title: task.title,
         Description: task.description ?? '',
         IsCompleted: !task.isCompleted,
+        Priority: task.priority ?? task.Priority ?? 'Medium',
+        DueDate: task.dueDate ?? task.DueDate ?? null,
+        Category: task.category ?? task.Category ?? 'General',
       });
 
+      await fetchTasks();
+    } catch {
+      // Keep the UI quiet; authorization and ownership are enforced by the API.
+    }
+  };
+
+  const handleUpdateTaskContent = async (task: TaskItem) => {
+    try {
+      const currentPriority = task.priority ?? task.Priority ?? getPriorityMeta(task).label;
+      const currentDueDate = task.dueDate ?? task.DueDate ?? null;
+      const currentCategory = task.category ?? task.Category ?? 'General';
+
+      await api.put(`/tasks/${task.id}`, {
+        Title: editTitle.trim(),
+        Description: editDescription.trim(),
+        IsCompleted: task.isCompleted,
+        Priority: currentPriority,
+        DueDate: currentDueDate,
+        Category: currentCategory,
+      });
+
+      setEditingTaskId(null);
+      setEditTitle('');
+      setEditDescription('');
       await fetchTasks();
     } catch {
       // Keep the UI quiet; authorization and ownership are enforced by the API.
@@ -297,7 +369,7 @@ function App() {
   };
 
   const getAssigneeLabel = (task: TaskItem) => {
-    const assigneeId = task.userId ?? task.assignedUserId;
+    const assigneeId = task.userId ?? task.UserId ?? task.assignedUserId ?? task.AssignedUserId;
 
     if (!assigneeId) {
       return 'Unassigned';
@@ -315,6 +387,41 @@ function App() {
     return assigneeId;
   };
 
+  const getTaskDueDate = (task: TaskItem) => task.dueDate ?? task.DueDate ?? null;
+
+  const formatDueDate = (task: TaskItem) => {
+    const dueDateValue = getTaskDueDate(task);
+
+    if (!dueDateValue) {
+      return 'No due date';
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(new Date(dueDateValue));
+  };
+
+  const getCategoryMeta = (task: TaskItem) => {
+    const category = (task.category ?? task.Category ?? 'General').trim();
+    const normalizedCategory = category.toLowerCase();
+
+    if (normalizedCategory === 'work') {
+      return { label: category, className: 'bg-sky-500/15 text-sky-300 ring-1 ring-inset ring-sky-500/30' };
+    }
+
+    if (normalizedCategory === 'personal') {
+      return { label: category, className: 'bg-violet-500/15 text-violet-300 ring-1 ring-inset ring-violet-500/30' };
+    }
+
+    if (normalizedCategory === 'urgent') {
+      return { label: category, className: 'bg-rose-500/15 text-rose-300 ring-1 ring-inset ring-rose-500/30' };
+    }
+
+    return { label: category || 'General', className: 'bg-slate-700/60 text-slate-200 ring-1 ring-inset ring-slate-600/70' };
+  };
+
   const completedTaskCount = tasks.filter((task) => task.isCompleted).length;
   const pendingTaskCount = tasks.length - completedTaskCount;
   const dashboardMetrics = [
@@ -329,7 +436,7 @@ function App() {
       onSubmit={handleCreateTask}
       className="rounded-3xl border border-emerald-500/20 bg-slate-900/70 p-4 shadow-[0_20px_60px_rgba(2,6,23,0.25)]"
     >
-      <div className="grid gap-3 xl:grid-cols-[1.1fr_1.2fr_1fr_1fr_auto] xl:items-end">
+      <div className="grid gap-3 xl:grid-cols-[1.1fr_1.2fr_1fr_1fr_1fr_1fr_auto] xl:items-end">
         <div className="flex-1">
           <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">New task title</label>
           <input
@@ -373,6 +480,30 @@ function App() {
         </div>
 
         <div className="flex-1">
+          <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">Due date</label>
+          <input
+            type="date"
+            value={newDueDate}
+            onChange={(event) => setNewDueDate(event.target.value)}
+            className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25"
+          />
+        </div>
+
+        <div className="flex-1">
+          <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">Category</label>
+          <select
+            value={newCategory}
+            onChange={(event) => setNewCategory(event.target.value)}
+            className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25"
+          >
+            <option value="General">General</option>
+            <option value="Work">Work</option>
+            <option value="Personal">Personal</option>
+            <option value="Urgent">Urgent</option>
+          </select>
+        </div>
+
+        <div className="flex-1">
           <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">Priority</label>
           <select
             value={newPriority}
@@ -399,7 +530,7 @@ function App() {
       onSubmit={handleCreateTask}
       className="rounded-3xl border border-emerald-500/20 bg-slate-900/70 p-4 shadow-[0_20px_60px_rgba(2,6,23,0.25)]"
     >
-      <div className="grid gap-3 xl:grid-cols-[1.3fr_1.7fr_1fr_auto] xl:items-end">
+      <div className="grid gap-3 xl:grid-cols-[1.3fr_1.7fr_1fr_1fr_1fr_auto] xl:items-end">
         <div>
           <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">New task title</label>
           <input
@@ -421,6 +552,30 @@ function App() {
             placeholder="Short task description"
             className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25"
           />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">Due date</label>
+          <input
+            type="date"
+            value={newDueDate}
+            onChange={(event) => setNewDueDate(event.target.value)}
+            className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">Category</label>
+          <select
+            value={newCategory}
+            onChange={(event) => setNewCategory(event.target.value)}
+            className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25"
+          >
+            <option value="General">General</option>
+            <option value="Work">Work</option>
+            <option value="Personal">Personal</option>
+            <option value="Urgent">Urgent</option>
+          </select>
         </div>
 
         <div>
@@ -462,6 +617,8 @@ function App() {
     setNewDescription('');
     setAssignedUserId('');
     setNewPriority('Medium');
+    setNewDueDate('');
+    setNewCategory('General');
     setIsCreatingTask(false);
     setLoginError(null);
     setRegisterError(null);
@@ -788,6 +945,10 @@ function App() {
                     {tasks.map((task) => {
                       const priority = getPriorityMeta(task);
                       const status = getStatusMeta(task);
+                      const category = getCategoryMeta(task);
+                      const isEditing = editingTaskId === task.id;
+                      const dueDateValue = getTaskDueDate(task);
+                      const dueDateText = formatDueDate(task);
 
                       return (
                         <article
@@ -810,16 +971,47 @@ function App() {
                                 />
                               </label>
 
-                              <div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">Task #{task.id}</p>
-                                <h3 className="mt-2 text-xl font-semibold text-white">{task.title}</h3>
-                                <p className="mt-2 text-xs text-slate-400">
-                                  👤 Assignee: {getAssigneeLabel(task)}
-                                </p>
-                              </div>
+                              {isEditing ? (
+                                <div className="min-w-0 flex-1 space-y-3">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">Task #{task.id}</p>
+                                  <input
+                                    type="text"
+                                    value={editTitle}
+                                    onChange={(event) => setEditTitle(event.target.value)}
+                                    className="w-full rounded-2xl border border-slate-700 bg-slate-950/90 px-4 py-3 text-xl font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25"
+                                  />
+                                  <textarea
+                                    value={editDescription}
+                                    onChange={(event) => setEditDescription(event.target.value)}
+                                    rows={4}
+                                    className="w-full rounded-2xl border border-slate-700 bg-slate-950/90 px-4 py-3 text-sm leading-6 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25"
+                                  />
+                                </div>
+                              ) : (
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">Task #{task.id}</p>
+                                  <h3 className="mt-2 text-xl font-semibold text-white">{task.title}</h3>
+                                  <p className="mt-2 text-xs text-slate-400">
+                                    👤 Assignee: {getAssigneeLabel(task)}
+                                  </p>
+                                </div>
+                              )}
                             </div>
 
                             <div className="flex flex-col items-end gap-2">
+                              {!isEditing ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingTaskId(task.id);
+                                    setEditTitle(task.title);
+                                    setEditDescription(task.description ?? '');
+                                  }}
+                                  className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:border-slate-500 hover:bg-slate-700 hover:text-white"
+                                >
+                                  Edit
+                                </button>
+                              ) : null}
                               <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
                                 {status.label}
                               </span>
@@ -835,13 +1027,48 @@ function App() {
                             </div>
                           </div>
 
-                          <p className="mt-4 text-sm leading-6 text-slate-400">
-                            {task.description?.trim() ? task.description : 'No description provided.'}
-                          </p>
+                          {isEditing ? (
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void handleUpdateTaskContent(task)}
+                                className="rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-400"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingTaskId(null);
+                                  setEditTitle('');
+                                  setEditDescription('');
+                                }}
+                                className="rounded-full border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 transition hover:border-slate-500 hover:bg-slate-700 hover:text-white"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="mt-4 text-sm leading-6 text-slate-400">
+                              {task.description?.trim() ? task.description : 'No description provided.'}
+                            </p>
+                          )}
 
                           <div className="mt-6 flex flex-wrap gap-2">
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${priority.className}`}>
                               Priority: {priority.label}
+                            </span>
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${category.className}`}>
+                              Category: {category.label}
+                            </span>
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                dueDateValue && new Date(dueDateValue).getTime() < Date.now() && !task.isCompleted
+                                  ? 'bg-rose-500/15 text-rose-300 ring-1 ring-inset ring-rose-500/30'
+                                  : 'bg-sky-500/15 text-sky-300 ring-1 ring-inset ring-sky-500/30'
+                              }`}
+                            >
+                              Due: {dueDateText}
                             </span>
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
                               Status: {status.label}
