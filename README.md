@@ -7,7 +7,8 @@ Skip the local installation and test the live full-stack system directly in your
 
 > ⚠️ **Important Evaluation Note (Render Free Tier "Cold Start"):** > This project is hosted on Render's free hosting tier. If the application has been inactive, the backend server may take **50–60 seconds to spin up and wake up from sleep** on your very first interaction (such as clicking 'Sign In'). Please allow up to one minute for the initial server response. Subsequent actions will be near-instantaneous.
 
-# OR if you configure all this youself  go to the SETUP_GUIDE.md  file for complete guide
+# OR if you configure all this youself  go to the [SETUP_GUIDE.md]  file for complete guide
+
 
 # Task Management System (.NET Full-Stack Enterprise Application)
 
