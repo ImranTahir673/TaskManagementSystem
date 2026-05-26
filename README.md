@@ -1,3 +1,14 @@
+## 🌐 Live Production Demo (Quick Access)
+
+Skip the local installation and test the live full-stack system directly in your browser:
+
+* **Live Application URL:** https://taskmanagement-client.onrender.com
+* **API Documentation Endpoint:** https://taskmanagement-server-mrrs.onrender.com/api/auth/me
+
+> ⚠️ **Important Evaluation Note (Render Free Tier "Cold Start"):** > This project is hosted on Render's free hosting tier. If the application has been inactive, the backend server may take **50–60 seconds to spin up and wake up from sleep** on your very first interaction (such as clicking 'Sign In'). Please allow up to one minute for the initial server response. Subsequent actions will be near-instantaneous.
+
+# OR if you configure all this youself  go to the SETUP_GUIDE.md  file for complete guide
+
 # Task Management System (.NET Full-Stack Enterprise Application)
 
 A robust, multi-role Task Management System engineered during the 10Pearls .NET Fullstack Internship track. The application features a decoupled **ASP.NET Core Web API** backend and a responsive **React TypeScript** client frontend.
