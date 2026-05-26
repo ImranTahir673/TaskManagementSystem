@@ -22,6 +22,7 @@ type RegisterFormState = {
   username: string;
   email: string;
   password: string;
+  adminRegistrationKey: string;
 };
 
 type ViewState = (typeof navigationItems)[number]['value'];
@@ -85,6 +86,7 @@ function App() {
     username: '',
     email: '',
     password: '',
+    adminRegistrationKey: '',
   });
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -623,7 +625,7 @@ function App() {
     setLoginError(null);
     setRegisterError(null);
     setLoginForm({ usernameOrEmail: '', password: '' });
-    setRegisterForm({ username: '', email: '', password: '' });
+    setRegisterForm({ username: '', email: '', password: '', adminRegistrationKey: '' });
   };
 
   const handleLoginSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -675,9 +677,10 @@ function App() {
         Username: registerForm.username,
         Email: registerForm.email,
         Password: registerForm.password,
+        adminRegistrationKey: registerForm.adminRegistrationKey,
       });
 
-      setRegisterForm({ username: '', email: '', password: '' });
+      setRegisterForm({ username: '', email: '', password: '', adminRegistrationKey: '' });
       setLoginForm({ usernameOrEmail: registerForm.username, password: '' });
       setAuthMode('login');
     } catch {
@@ -794,6 +797,18 @@ function App() {
                   placeholder="Create a password"
                   autoComplete="new-password"
                   required
+                />
+              </label>
+
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-slate-300">Admin Registration Key (Optional)</span>
+                <input
+                  type="text"
+                  value={registerForm.adminRegistrationKey}
+                  onChange={(event) => setRegisterForm((current) => ({ ...current, adminRegistrationKey: event.target.value }))}
+                  className="w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25"
+                  placeholder="Enter admin access key if applicable"
+                  autoComplete="off"
                 />
               </label>
 

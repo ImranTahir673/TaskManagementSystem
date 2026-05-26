@@ -103,11 +103,16 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+try
 {
+    using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     dbContext.Database.EnsureCreated();
     await scope.ServiceProvider.SeedDefaultUsersAsync();
+}
+catch (Exception ex)
+{
+    Log.Error(ex, "An error occurred while initializing the database.");
 }
 
 // Configure the HTTP request pipeline.
