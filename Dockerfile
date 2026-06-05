@@ -1,12 +1,14 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-COPY TaskManagement.Api/TaskManagement.Api.csproj TaskManagement.Api/
-RUN dotnet restore TaskManagement.Api/TaskManagement.Api.csproj
+# ✅ Updated to your new folder and .csproj name
+COPY TaskManagementSystem.API/TaskManagementSystem.API.csproj TaskManagementSystem.API/
+RUN dotnet restore TaskManagementSystem.API/TaskManagementSystem.API.csproj
 
-COPY TaskManagement.Api/ TaskManagement.Api/
-WORKDIR /src/TaskManagement.Api
-RUN dotnet publish TaskManagement.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
+# ✅ Updated target directory contexts
+COPY TaskManagementSystem.API/ TaskManagementSystem.API/
+WORKDIR /src/TaskManagementSystem.API
+RUN dotnet publish TaskManagementSystem.API.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
@@ -15,4 +17,5 @@ EXPOSE 8080
 
 COPY --from=build /app/publish ./
 
-ENTRYPOINT ["dotnet", "TaskManagement.Api.dll"]
+# ✅ Updated execution assembly pointer
+ENTRYPOINT ["dotnet", "TaskManagementSystem.API.dll"]
